@@ -40,35 +40,53 @@ backend_input = st.sidebar.text_input(
 if backend_input:
     BACKEND_API_URL = backend_input
 
-# Reusable cached health check
-@st.cache_data(ttl=15, show_spinner=False)
+# Reusable cached health check with generous timeout for cloud spin-ups
+@st.cache_data(ttl=10, show_spinner=False)
 def fetch_backend_health(url: str):
-    """Caches health check for 15 seconds to prevent network lag on UI reruns."""
+    """Checks backend health with a 15-second timeout to accommodate free cloud tier cold starts."""
     try:
-        resp = requests.get(f"{url}/health", timeout=3)
+        resp = requests.get(f"{url}/health", timeout=15)
         if resp.status_code == 200:
             return True, resp.json()
-        return False, {"error": f"Status {resp.status_code}"}
+        return False, {"error": f"HTTP {resp.status_code}: {resp.text[:100]}"}
+    except requests.exceptions.Timeout:
+        return False, {"error": "Connection timed out (backend may be spinning up or sleeping)"}
+    except requests.exceptions.ConnectionError:
+        return False, {"error": "Connection refused / server unreachable"}
     except Exception as exc:
         return False, {"error": str(exc)}
 
 
 is_online, health_data = fetch_backend_health(BACKEND_API_URL)
+
 if is_online:
     st.sidebar.success("● Backend Online")
     st.sidebar.caption(
+        f"URL: `{BACKEND_API_URL}`\n\n"
         f"Knowledge Vectors: **{health_data.get('knowledge_base_count', 0)}** chunks\n\n"
         f"Collection: `{health_data.get('collection_name', 'default')}`"
     )
 else:
     st.sidebar.error("● Backend Offline")
-    if is_deployed or ("127.0.0.1" not in BACKEND_API_URL and "localhost" not in BACKEND_API_URL):
-        st.sidebar.caption(
-            f"Unable to connect to deployed backend at:\n`{BACKEND_API_URL}`\n\n"
-            "Please verify that your deployed FastAPI service is active and running."
+    error_detail = health_data.get("error", "Unknown error")
+    st.sidebar.warning(f"**Reason:** {error_detail}")
+
+    if not is_deployed and ("127.0.0.1" in BACKEND_API_URL or "localhost" in BACKEND_API_URL):
+        st.sidebar.info(
+            "⚠️ **Secret not detected**: Streamlit Cloud has not read `BACKEND_API_URL`.\n\n"
+            "Please go to **App Settings > Secrets** in Streamlit Cloud and add:\n"
+            '```toml\nBACKEND_API_URL = "https://your-api.onrender.com"\n```'
         )
     else:
-        st.sidebar.caption("Run locally: `python -m uvicorn backend.main:app --reload`")
+        st.sidebar.caption(
+            f"Target URL: `{BACKEND_API_URL}`\n\n"
+            "If using free hosting (e.g. Render), please allow up to 60 seconds for the service to wake up."
+        )
+
+# Manual re-test button in sidebar
+if st.sidebar.button("🔄 Re-check Connection", use_container_width=True):
+    fetch_backend_health.clear()
+    st.rerun()
 
 # Sample Error Presets
 st.sidebar.markdown("---")
