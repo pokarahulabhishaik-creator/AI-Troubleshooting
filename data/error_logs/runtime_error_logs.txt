@@ -1,0 +1,34 @@
+=== RUNTIME ERROR LOG 001 ===
+Timestamp: 2026-10-07 10:14:02 UTC
+Command: python backend/main.py
+Traceback (most recent call last):
+  File "D:\AI-Troubleshooting\backend\main.py", line 5, in <module>
+    from backend.rag.retriever import retrieve_documents
+ModuleNotFoundError: No module named 'backend'
+Explanation: The script was executed as 'python backend/main.py', which put 'backend' as sys.path[0], masking the root project directory. Execute from root using 'python -m backend.main' instead.
+
+=== RUNTIME ERROR LOG 002 ===
+Timestamp: 2026-10-07 10:22:15 UTC
+Command: python -m uvicorn backend.main:app --reload
+Traceback (most recent call last):
+  File "C:\Python312\Lib\asyncio\runners.py", line 118, in run
+  File "uvicorn\server.py", line 65, in serve
+OSError: [Errno 10048] error while attempting to bind on address ('127.0.0.1', 8000): only one usage of each socket address (protocol/network address/port) is normally permitted
+Explanation: Port 8000 is already bound to another active server process. Terminate existing process or use a different port like 8001.
+
+=== RUNTIME ERROR LOG 003 ===
+Timestamp: 2026-10-07 10:35:40 UTC
+Command: python -m backend.rag.embeddings
+Traceback (most recent call last):
+  File "backend/rag/embeddings.py", line 12, in load_data
+    with open("data/knowledge_articles/guide.md", "r") as f:
+FileNotFoundError: [Errno 2] No such file or directory: 'data/knowledge_articles/guide.md'
+Explanation: Relative path assumed the current working directory was the parent root, but the command was executed from a nested subdirectory. Use pathlib.Path(__file__).resolve() to anchor paths safely.
+
+=== RUNTIME ERROR LOG 004 ===
+Timestamp: 2026-10-07 10:48:19 UTC
+Command: python -m streamlit run frontend/app.py
+Traceback (most recent call last):
+  File "requests\adapters.py", line 519, in send
+urllib3.exceptions.NewConnectionError: <urllib3.connection.HTTPConnection object at 0x0000021A>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it
+Explanation: Streamlit tried to communicate with FastAPI at http://127.0.0.1:8000, but the FastAPI service was not running.
