@@ -33,11 +33,9 @@ async def lifespan(app: FastAPI):
         collection = get_knowledge_collection(client=client)
         if collection.count() == 0:
             print("[Startup] Knowledge collection is empty. Auto-indexing data files...")
-        # Pre-warm embedding model into memory for zero cold-start latency
-        from backend.rag.embeddings import get_embedding_model, generate_embeddings
-        get_embedding_model()
-        generate_embeddings(["warmup query"])
-        print(f"[Startup] Vector collection '{COLLECTION_NAME}' active with {collection.count()} chunks. Embedding cache pre-warmed.")
+            build_vector_database()
+        else:
+            print(f"[Startup] Vector collection '{COLLECTION_NAME}' active with {collection.count()} chunks.")
     except Exception as exc:
         print(f"[Startup Warning] Could not verify vector database: {exc}")
     yield

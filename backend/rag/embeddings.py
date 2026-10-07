@@ -7,6 +7,16 @@ and manages persistence with ChromaDB.
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import os
+# Limit PyTorch and BLAS memory overhead on 512MB free cloud containers
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+try:
+    import torch
+    torch.set_num_threads(1)
+except Exception:
+    pass
+
 import chromadb
 from chromadb.config import Settings
 from sentence_transformers import SentenceTransformer
