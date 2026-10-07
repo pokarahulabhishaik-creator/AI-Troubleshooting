@@ -245,6 +245,33 @@ Streamlit will launch automatically in your default browser at `http://localhost
 
 ---
 
+## ☁️ Cloud Deployment Configuration
+
+When deploying the frontend to **Streamlit Community Cloud** and the backend to a cloud host (such as Render, Railway, Fly.io, or AWS):
+
+### 1. Streamlit Cloud Secrets Configuration
+The deployed Streamlit application reads the backend URL directly from Streamlit Secrets:
+
+1. Open your app dashboard on [share.streamlit.io](https://share.streamlit.io).
+2. Go to **Settings** -> **Secrets**.
+3. Add your deployed FastAPI backend URL:
+   ```toml
+   BACKEND_API_URL = "https://your-deployed-fastapi-api.onrender.com"
+   ```
+4. Save the secrets. The deployed frontend will automatically route all health checks and diagnostic requests to your live backend.
+
+### 2. Local vs. Deployed Fallback Behavior
+- **Local Development**: When `BACKEND_API_URL` is not defined in Streamlit secrets, the frontend safely falls back to `http://127.0.0.1:8000`.
+- **Deployed Production**: When `BACKEND_API_URL` is set, the frontend uses the secret URL and suppresses localhost warnings.
+
+### 3. FastAPI CORS for Cloud Frontends
+The FastAPI backend (`backend/main.py`) allows:
+- Local development origins: `http://localhost:8501`, `http://127.0.0.1:8501`
+- Deployed Streamlit Cloud regex: `^https://.*\.streamlit\.app$`
+- Custom origins via the `ALLOWED_ORIGINS` environment variable (e.g. `ALLOWED_ORIGINS=https://my-domain.com`).
+
+---
+
 ## 🧪 Benchmark Evaluation
 
 Run the automated evaluation benchmark to measure retrieval accuracy and semantic distance across technical error scenarios:

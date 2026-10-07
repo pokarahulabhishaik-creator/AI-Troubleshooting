@@ -19,22 +19,33 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Configure Backend API URL from Streamlit secrets (with local fallback)
+is_deployed = False
+try:
+    BACKEND_API_URL = st.secrets["BACKEND_API_URL"].strip().rstrip("/")
+    is_deployed = True
+except Exception:
+    BACKEND_API_URL = os.getenv("BACKEND_API_URL", os.getenv("BACKEND_URL", "http://127.0.0.1:8000")).strip().rstrip("/")
+
 # Sidebar Configuration
 st.sidebar.title("⚙️ Configuration")
 
-default_backend_url = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
-backend_url = st.sidebar.text_input(
+# Allow manual override or display configured backend URL
+backend_input = st.sidebar.text_input(
     "Backend API URL",
-    value=default_backend_url,
-    help="URL of the running FastAPI server"
-).rstrip("/")
+    value=BACKEND_API_URL,
+    help="Configured FastAPI backend URL (via Streamlit secret BACKEND_API_URL or local fallback)"
+).strip().rstrip("/")
+
+if backend_input:
+    BACKEND_API_URL = backend_input
 
 # Reusable cached health check
 @st.cache_data(ttl=15, show_spinner=False)
 def fetch_backend_health(url: str):
     """Caches health check for 15 seconds to prevent network lag on UI reruns."""
     try:
-        resp = requests.get(f"{url}/health", timeout=2)
+        resp = requests.get(f"{url}/health", timeout=3)
         if resp.status_code == 200:
             return True, resp.json()
         return False, {"error": f"Status {resp.status_code}"}
@@ -42,7 +53,7 @@ def fetch_backend_health(url: str):
         return False, {"error": str(exc)}
 
 
-is_online, health_data = fetch_backend_health(backend_url)
+is_online, health_data = fetch_backend_health(BACKEND_API_URL)
 if is_online:
     st.sidebar.success("● Backend Online")
     st.sidebar.caption(
@@ -51,7 +62,13 @@ if is_online:
     )
 else:
     st.sidebar.error("● Backend Offline")
-    st.sidebar.caption("Run: `python -m uvicorn backend.main:app --reload`")
+    if is_deployed or ("127.0.0.1" not in BACKEND_API_URL and "localhost" not in BACKEND_API_URL):
+        st.sidebar.caption(
+            f"Unable to connect to deployed backend at:\n`{BACKEND_API_URL}`\n\n"
+            "Please verify that your deployed FastAPI service is active and running."
+        )
+    else:
+        st.sidebar.caption("Run locally: `python -m uvicorn backend.main:app --reload`")
 
 # Sample Error Presets
 st.sidebar.markdown("---")
@@ -119,7 +136,7 @@ if diagnose_button:
         with st.spinner("Analyzing error and querying knowledge base via RAG..."):
             try:
                 response = requests.post(
-                    f"{backend_url}/troubleshoot",
+                    f"{BACKEND_API_URL}/troubleshoot",
                     json={"error_text": error_input.strip(), "top_k": top_k},
                     timeout=30
                 )
@@ -128,13 +145,19 @@ if diagnose_button:
                 else:
                     st.error(f"Backend API Error ({response.status_code}): {response.text}")
             except requests.exceptions.ConnectionError:
-                st.error(
-                    f"❌ Unable to connect to the backend server at `{backend_url}`.\n\n"
-                    "Please ensure the FastAPI service is running:\n"
-                    "```powershell\n"
-                    "python -m uvicorn backend.main:app --reload\n"
-                    "```"
-                )
+                if is_deployed or ("127.0.0.1" not in BACKEND_API_URL and "localhost" not in BACKEND_API_URL):
+                    st.error(
+                        f"❌ Unable to connect to the deployed backend server at `{BACKEND_API_URL}`.\n\n"
+                        "Please verify that your deployed FastAPI service is active, running, and accessible from Streamlit Cloud."
+                    )
+                else:
+                    st.error(
+                        f"❌ Unable to connect to the local backend server at `{BACKEND_API_URL}`.\n\n"
+                        "Please ensure the local FastAPI service is running:\n"
+                        "```powershell\n"
+                        "python -m uvicorn backend.main:app --reload\n"
+                        "```"
+                    )
             except Exception as exc:
                 st.error(f"An unexpected error occurred: {str(exc)}")
 

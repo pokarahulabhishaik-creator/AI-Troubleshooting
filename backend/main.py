@@ -50,12 +50,23 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Enable CORS for Streamlit and cross-origin frontend clients
+# Enable CORS for local Streamlit development and deployed Streamlit Cloud
+import os
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
+custom_origins = [orig.strip() for orig in allowed_origins_env.split(",") if orig.strip()]
+default_origins = [
+    "http://localhost:8501",
+    "http://127.0.0.1:8501",
+    "http://localhost:3000",
+]
+allowed_origins = list(set(default_origins + custom_origins))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
+    allow_origin_regex=r"^https://.*\.streamlit\.app$",
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
